@@ -1,0 +1,41 @@
+name: Supabase setup (database, security, storage)
+
+# Run manually from the Actions tab after adding these repository SECRETS:
+#   SUPABASE_ACCESS_TOKEN  – from supabase.com/dashboard/account/tokens
+#   SUPABASE_PROJECT_REF   – the id in your project URL (https://<ref>.supabase.co)
+#   SUPABASE_DB_PASSWORD   – the database password chosen when creating the project
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Link project
+        run: supabase link --project-ref "$REF" --password "$SUPABASE_DB_PASSWORD"
+      - name: Apply migrations (tables, RLS, triggers, buckets, scheduled job)
+        run: supabase db push --password "$SUPABASE_DB_PASSWORD" --include-all
+      - name: Configure auth redirect URLs
+        run: |
+          curl -sf -X PATCH "https://api.supabase.com/v1/projects/$REF/config/auth" \
+            -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" -H "Content-Type: application/json" \
+            -d '{"site_url":"https://makramshmait2004-byte.github.io/MakNotes/","uri_allow_list":"https://makramshmait2004-byte.github.io/MakNotes/**,http://localhost:5173/**,http://localhost:4173/**","mailer_autoconfirm":false}'
+      - name: Cross-user isolation test (RLS)
+        run: |
+          OUT=$(supabase db query --linked -f supabase/tests/rls_isolation.sql 2>&1 || true)
+          echo "$OUT"
+          if echo "$OUT" | grep -E '\bf\b|false' ; then echo "RLS test failed"; exit 1; fi
+      - name: Generate TypeScript types
+        run: supabase gen types typescript --project-id "$REF" > src/types/database.ts && head -5 src/types/database.ts
+      - uses: actions/upload-artifact@v4
+        with:
+          name: database-types
+          path: src/types/database.ts

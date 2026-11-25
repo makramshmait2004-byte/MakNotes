@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 40 14% 97%;
+    --foreground: 240 6% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 6% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 6% 10%;
+    --primary: 240 6% 10%;
+    --primary-foreground: 40 14% 97%;
+    --secondary: 40 8% 92%;
+    --secondary-foreground: 240 6% 10%;
+    --muted: 40 8% 93%;
+    --muted-foreground: 240 4% 42%;
+    --accent: 40 8% 91%;
+    --accent-foreground: 240 6% 10%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 40 6% 86%;
+    --input: 40 6% 82%;
+    --ring: 33 35% 45%;
+    --bronze: 33 38% 42%;
+    --bronze-foreground: 40 30% 98%;
+    --radius: 0.6rem;
+    --paper: 0 0% 100%;
+    --paper-line: 220 10% 85%;
+  }
+  .dark {
+    --background: 240 4% 6%;
+    --foreground: 40 10% 92%;
+    --card: 240 4% 9%;
+    --card-foreground: 40 10% 92%;
+    --popover: 240 4% 10%;
+    --popover-foreground: 40 10% 92%;
+    --primary: 40 10% 92%;
+    --primary-foreground: 240 4% 8%;
+    --secondary: 240 4% 14%;
+    --secondary-foreground: 40 10% 92%;
+    --muted: 240 4% 13%;
+    --muted-foreground: 240 4% 60%;
+    --accent: 240 4% 15%;
+    --accent-foreground: 40 10% 92%;
+    --destructive: 0 60% 52%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 4% 17%;
+    --input: 240 4% 21%;
+    --ring: 33 45% 55%;
+    --bronze: 33 45% 58%;
+    --bronze-foreground: 240 4% 8%;
+    --paper: 240 4% 10%;
+    --paper-line: 240 4% 22%;
+  }
+  * {
+    @apply border-border;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+    overscroll-behavior-y: none;
+  }
+  ::selection {
+    background: hsl(var(--bronze) / 0.3);
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+/* Tiptap */
+.ProseMirror {
+  outline: none;
+  min-height: 2.5rem;
+  line-height: 1.65;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: inline-start;
+  height: 0;
+  pointer-events: none;
+  color: hsl(var(--muted-foreground) / 0.7);
+}
+.ProseMirror h1 { font-size: 1.5rem; font-weight: 600; margin: 0.6em 0 0.3em; font-family: Georgia, serif; }
+.ProseMirror h2 { font-size: 1.25rem; font-weight: 600; margin: 0.6em 0 0.3em; }
+.ProseMirror h3 { font-size: 1.1rem; font-weight: 600; margin: 0.5em 0 0.2em; }
+.ProseMirror p { margin: 0.25em 0; }
+.ProseMirror ul { list-style: disc; padding-inline-start: 1.4em; }
+.ProseMirror ol { list-style: decimal; padding-inline-start: 1.4em; }
+.ProseMirror blockquote { border-inline-start: 3px solid hsl(var(--bronze)); padding-inline-start: 0.9em; color: hsl(var(--muted-foreground)); }
+.ProseMirror code { background: hsl(var(--muted)); padding: 0.1em 0.3em; border-radius: 4px; font-size: 0.9em; }
+.ProseMirror pre { background: hsl(var(--muted)); padding: 0.75em 1em; border-radius: 6px; overflow-x: auto; }
+.ProseMirror a { color: hsl(var(--bronze)); text-decoration: underline; }
+.ProseMirror img { max-width: 100%; border-radius: 6px; }
+.ProseMirror hr { border-color: hsl(var(--border)); margin: 1em 0; }
+.ProseMirror ul[data-type='taskList'] { list-style: none; padding-inline-start: 0.2em; }
+.ProseMirror ul[data-type='taskList'] li { display: flex; gap: 0.5em; align-items: flex-start; }
+.ProseMirror ul[data-type='taskList'] li > label { margin-top: 0.3em; }
+.ProseMirror ul[data-type='taskList'] li > label input { accent-color: hsl(var(--bronze)); width: 1rem; height: 1rem; }
+.ProseMirror ul[data-type='taskList'] li[data-checked='true'] > div { text-decoration: line-through; color: hsl(var(--muted-foreground)); }
+
+/* Print / PDF export */
+@media print {
+  @page { margin: 14mm; }
+  body { background: #fff !important; color: #111 !important; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .print-break { break-before: page; }
+}
+.print-only { display: none; }
