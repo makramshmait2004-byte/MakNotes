@@ -168,7 +168,7 @@ export interface DailyPriority extends BaseRow {
 
 export interface DailyReflection extends BaseRow {
   daily_page_id: string;
-  kind: 'morning' | 'evening';
+  kind: 'morning' | 'evening' | 'weekly';
   answers: Record<string, string>;
 }
 

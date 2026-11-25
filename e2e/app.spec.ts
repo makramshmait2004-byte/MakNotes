@@ -44,7 +44,49 @@ test('daily workspace: priorities, tasks and notes persist after reload (offline
   await page.reload();
   await expect(page.getByTestId('priority-1')).toHaveValue('Ship MakNotes');
   await expect(page.getByTestId('task-item').filter({ hasText: 'Charge the S Pen' }).getByRole('checkbox')).toHaveAttribute('data-state', 'checked');
+  await page.goto('./#/today?focus=progress');
   await expect(page.getByTestId('daily-score')).not.toHaveText('0%');
+});
+
+test('today defaults: section order, GymFlow label, hidden sections, Sunday review', async ({ page }) => {
+  await page.goto('./#/day/2026-11-25'); // a Wednesday
+  const ids = await page.locator('[data-section]').evaluateAll((els) => els.map((e) => e.getAttribute('data-section')));
+  expect(ids).toEqual(['priorities', 'tasks', 'habits', 'schedule', 'evening']);
+  await expect(page.getByTestId('gymflow-step')).toHaveText('GymFlow step');
+  await page.goto('./#/day/2026-11-29'); // a Sunday
+  await expect(page.locator('[data-section]')).toHaveCount(6);
+  const review = page.locator('[data-section="sunday_review"]');
+  await expect(review).toContainText('Which gym did I talk to?');
+  await review.getByRole('textbox').first().fill('Shipped the mind map');
+  await review.getByRole('textbox').first().blur();
+  await page.waitForTimeout(700);
+  await page.reload();
+  await expect(page.locator('[data-section="sunday_review"]').getByRole('textbox').first()).toHaveValue('Shipped the mind map');
+  // hidden sections can be shown again from Settings
+  await page.goto('./#/settings');
+  await page.getByTestId('section-toggle-journal').click();
+  await page.goto('./#/day/2026-11-25');
+  await expect(page.locator('[data-section="journal"]')).toBeVisible();
+});
+
+test('home progress only appears with real goal data', async ({ page }) => {
+  await page.goto('./#/home');
+  await expect(page.getByTestId('home-greeting')).toBeVisible();
+  await expect(page.getByTestId('home-progress')).toHaveCount(0);
+  await page.goto('./#/projects');
+  await page.getByTestId('new-project').click();
+  await page.getByTestId('project-title').fill('GymFlow');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#\/projects\/[0-9a-f-]{36}/);
+  await page.goto('./#/goals');
+  await page.getByTestId('new-goal').click();
+  await page.getByTestId('goal-title').fill('Business mind map');
+  await page.locator('input[type=date]').fill('2099-01-01');
+  await page.getByRole('dialog').locator('select').last().selectOption({ label: 'GymFlow' });
+  await page.getByRole('button', { name: 'Create' }).click();
+  await page.goto('./#/home');
+  await expect(page.getByTestId('next-deadline')).toContainText('Business mind map');
+  await expect(page.getByTestId('gymflow-progress')).toContainText('0/1');
 });
 
 test('tasks: create with dialog, views, recurring completion creates next', async ({ page }) => {
@@ -111,7 +153,10 @@ test('sketchbook: S Pen strokes, undo/redo, eraser, persistence', async ({ page 
 });
 
 test('handwriting inside the daily page', async ({ page }) => {
-  await page.goto('./');
+  // handwriting is hidden by default on the GymFlow layout: show it from Settings first
+  await page.goto('./#/settings');
+  await page.getByTestId('section-toggle-handwriting').click();
+  await page.goto('./#/today');
   await page.getByTestId('start-handwriting').click();
   await drawStroke(page, 'pen', [40, 60], [200, 70]);
   await expect(page.getByTestId('drawing-canvas')).toHaveAttribute('data-stroke-count', '1');
@@ -151,10 +196,12 @@ test('habits, insights and Arabic RTL', async ({ page }) => {
 
 test('mobile layout has no horizontal scroll and large touch targets', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'mobile only');
-  for (const path of ['today', 'tasks', 'calendar', 'journal', 'habits', 'insights', 'settings', 'home']) {
+  for (const path of ['today', 'day/2026-11-29', 'tasks', 'calendar', 'journal', 'habits', 'goals', 'projects', 'notebooks', 'insights', 'settings', 'home']) {
     await page.goto(`./#/${path}`);
     await page.waitForTimeout(200);
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    // compare against the device viewport, so a zoomed-out (too wide) page is caught too
+    const vw = page.viewportSize()!.width;
+    const overflow = await page.evaluate((w) => Math.max(document.documentElement.scrollWidth, window.innerWidth) - w, vw);
     expect(overflow, path).toBeLessThanOrEqual(1);
   }
   const nav = page.getByRole('navigation', { name: 'Main navigation' });

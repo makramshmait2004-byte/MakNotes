@@ -19,6 +19,7 @@ import { useInstallPrompt } from '@/components/layout/pwa';
 import { useT } from '@/i18n';
 import { listTimeZones, isValidTimeZone, todayISO } from '@/lib/dates';
 import type { Paper, UserSettings } from '@/types/models';
+import { resolveLayout, SECTIONS } from '@/features/today/sections';
 
 function Card({ id, title, children }: { id?: string; title: string; children: React.ReactNode }) {
   return (
@@ -181,6 +182,26 @@ function Preferences() {
   );
 }
 
+function TodaySections() {
+  const t = useT();
+  const s = useSettings();
+  const { hidden } = resolveLayout(s.section_layout);
+  const toggle = (id: string, show: boolean) =>
+    void updateSettings({ section_layout: { ...s.section_layout, hidden: show ? [...hidden].filter((x) => x !== id) : [...hidden, id] } });
+  return (
+    <Card title={t('Today page sections')}>
+      {SECTIONS.map((sec) => (
+        <Row key={sec.id} label={t(sec.label)} hint={sec.id === 'sunday_review' ? t('Shown on Sundays only.') : undefined}>
+          <Switch checked={!hidden.has(sec.id)} onCheckedChange={(v) => toggle(sec.id, v)} aria-label={t(sec.label)} data-testid={`section-toggle-${sec.id}`} />
+        </Row>
+      ))}
+      <Button variant="outline" className="justify-self-start" onClick={() => void updateSettings({ section_layout: {} })}>
+        {t('Reset layout')}
+      </Button>
+    </Card>
+  );
+}
+
 function Device() {
   const t = useT();
   const { canInstall, install, standalone } = useInstallPrompt();
@@ -335,7 +356,7 @@ function Account() {
         <Button variant="outline" onClick={() => void signOut(false)} data-testid="sign-out">
           <LogOut /> {t('Sign out')}
         </Button>
-        <Button variant="outline" onClick={() => void signOut(true)}>
+        <Button variant="outline" className="h-auto min-h-10 whitespace-normal text-start" onClick={() => void signOut(true)}>
           <LogOut /> {t('Sign out and remove data from this device')}
         </Button>
       </div>
@@ -362,6 +383,7 @@ export default function SettingsPage() {
       <PageHeader title={t('Settings')} />
       <Profile />
       <Preferences />
+      <TodaySections />
       <Device />
       <Sync />
       <ServerCheck />

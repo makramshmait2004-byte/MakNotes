@@ -136,7 +136,7 @@ function DayView({ date }: { date: string }) {
       )}
       {data.refl.map((r) => (
         <div key={r.id}>
-          <H>{t(r.kind === 'morning' ? 'Morning reflection' : 'Evening reflection')}</H>
+          <H>{t(r.kind === 'morning' ? 'Morning reflection' : r.kind === 'weekly' ? 'Sunday review' : 'Evening reflection')}</H>
           {Object.entries(r.answers).filter(([, a]) => a).map(([q, a]) => (
             <div key={q} className="mb-2">
               <p className="text-sm font-medium">{t(q)}</p>

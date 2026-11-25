@@ -1,23 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  BookOpen,
-  CalendarClock,
   CalendarDays,
   ChevronLeft,
   ChevronRight,
-  Gauge,
-  ListChecks,
-  Moon,
   PenLine,
-  PenTool,
   Plus,
-  Repeat,
   Settings2,
-  StickyNote,
-  Sunrise,
-  Target,
-  Trophy,
   FileDown,
   Check,
 } from 'lucide-react';
@@ -25,7 +14,7 @@ import { useDb, useAll } from '@/data/hooks';
 import { insert, update, upsert, currentUserId } from '@/data/repo';
 import { getDb } from '@/data/db';
 import { stableId } from '@/lib/ids';
-import { addDays, formatDate, isISODate, diffDays } from '@/lib/dates';
+import { addDays, formatDate, isISODate, diffDays, weekday } from '@/lib/dates';
 import { useLocale, useT } from '@/i18n';
 import { updateSettings, useSettings, useToday } from '@/stores/settings';
 import { openEventDialog, openTaskDialog } from '@/stores/ui';
@@ -45,22 +34,9 @@ import { createSketch } from '@/features/sketch/sketchActions';
 import { isDue, setHabit } from '@/features/habits/habitLogic';
 import { cn, debounce } from '@/lib/utils';
 import type { DailyPage, Row } from '@/types/models';
+import { resolveLayout, SECTIONS, SUNDAY_PROMPTS, type SectionId } from './sections';
 
-export const SECTIONS = [
-  { id: 'schedule', label: "Today's schedule", icon: CalendarClock },
-  { id: 'priorities', label: 'Top 3 priorities', icon: Trophy },
-  { id: 'tasks', label: 'Tasks', icon: ListChecks },
-  { id: 'morning', label: 'Morning planning', icon: Sunrise },
-  { id: 'quick_notes', label: 'Quick notes', icon: StickyNote },
-  { id: 'journal', label: 'Journal', icon: BookOpen },
-  { id: 'handwriting', label: 'Handwriting', icon: PenLine },
-  { id: 'sketches', label: 'Sketches', icon: PenTool },
-  { id: 'habits', label: 'Habits', icon: Repeat },
-  { id: 'goals', label: 'Goals', icon: Target },
-  { id: 'evening', label: 'Evening reflection', icon: Moon },
-  { id: 'progress', label: 'Daily progress', icon: Gauge },
-] as const;
-type SectionId = (typeof SECTIONS)[number]['id'];
+export { SECTIONS } from './sections';
 
 /** Get-or-create the unique page for a date (deterministic id → no duplicates across devices). */
 export async function ensureDailyPage(date: string): Promise<Row<'daily_pages'>> {
@@ -101,6 +77,7 @@ function Priorities({ date, page }: { date: string; page?: Row<'daily_pages'> })
         return (
           <div key={`${date}-${n}`} className="flex items-center gap-3">
             <span className="w-5 font-serif text-lg text-bronze">{n}</span>
+            {n === 1 && <span className="shrink-0 rounded border border-bronze/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-bronze" data-testid="gymflow-step">{t('GymFlow step')}</span>}
             <Checkbox checked={r?.done ?? false} disabled={!r?.text} onCheckedChange={(v) => void save.flush(n, { done: v === true })} aria-label={t('Priority {n} done', { n })} />
             <input
               key={`${r?.id ?? 'new'}-${r?.updated_at ?? ''}`}
@@ -108,7 +85,7 @@ function Priorities({ date, page }: { date: string; page?: Row<'daily_pages'> })
               onChange={(e) => save(n, { text: e.target.value })}
               onBlur={(e) => save.flush(n, { text: e.target.value })}
               placeholder={t('Priority {n}', { n })}
-              className={cn('h-10 flex-1 border-b bg-transparent text-[15px] outline-none focus:border-bronze', r?.done && 'text-muted-foreground line-through')}
+              className={cn('h-10 min-w-0 flex-1 border-b bg-transparent text-[15px] outline-none focus:border-bronze', r?.done && 'text-muted-foreground line-through')}
               dir="auto"
               data-testid={`priority-${n}`}
             />
@@ -184,11 +161,11 @@ function Schedule({ date }: { date: string }) {
   );
 }
 
-function Reflection({ date, page, kind }: { date: string; page?: Row<'daily_pages'>; kind: 'morning' | 'evening' }) {
+function Reflection({ date, page, kind }: { date: string; page?: Row<'daily_pages'>; kind: 'morning' | 'evening' | 'weekly' }) {
   const t = useT();
   const settings = useSettings();
   const row = useDb(async (db) => (page ? (await db.daily_reflections.where('daily_page_id').equals(page.id).toArray()).find((r) => r.kind === kind && !r.deleted_at) : undefined), [page?.id, kind], undefined as Row<'daily_reflections'> | undefined);
-  const prompts = kind === 'morning' ? MORNING_PROMPTS.slice(0, 3) : EVENING_PROMPTS.slice(0, 4);
+  const prompts = kind === 'morning' ? MORNING_PROMPTS.slice(0, 3) : kind === 'weekly' ? SUNDAY_PROMPTS : EVENING_PROMPTS.slice(0, 4);
   const save = useMemo(
     () =>
       debounce(async (q: string, a: string) => {
@@ -208,7 +185,7 @@ function Reflection({ date, page, kind }: { date: string; page?: Row<'daily_page
           <RichText value={page?.morning_plan} onChange={(doc) => void patchPage(date, { morning_plan: doc })} placeholder={t('Plan your day…')} toolbar={false} />
         </>
       )}
-      {(kind === 'evening' || settings.reflection_prompts) &&
+      {(kind !== 'morning' || settings.reflection_prompts) &&
         prompts.map((q) => (
           <label key={`${date}-${q}`} className="block">
             <span className="mb-1 block text-sm text-muted-foreground">{t(q)}</span>
@@ -430,14 +407,13 @@ export default function TodayPage() {
   const page = usePage(date);
 
   const layout = settings.section_layout ?? {};
-  const allIds = SECTIONS.map((s) => s.id) as SectionId[];
-  const order = [...(layout.order ?? []).filter((id): id is SectionId => allIds.includes(id as SectionId)), ...allIds.filter((id) => !(layout.order ?? []).includes(id))];
-  const hidden = new Set(layout.hidden ?? []);
-  const collapsed = new Set(layout.collapsed ?? []);
+  const { order, hidden, collapsed } = resolveLayout(layout);
+  const isSunday = weekday(date) === 0;
+  const applies = (id: SectionId) => id !== 'sunday_review' || isSunday;
 
   const setLayout = (patch: Partial<typeof layout>) => void updateSettings({ section_layout: { ...layout, ...patch } });
   const move = (id: SectionId, dir: -1 | 1) => {
-    const visible = order.filter((x) => !hidden.has(x));
+    const visible = order.filter((x) => !hidden.has(x) && applies(x));
     const i = visible.indexOf(id);
     const j = i + dir;
     if (j < 0 || j >= visible.length) return;
@@ -463,6 +439,15 @@ export default function TodayPage() {
     setSearch(search, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
+
+  // The Sunday review is created automatically the first time a Sunday's page is opened.
+  useEffect(() => {
+    if (!isSunday || date > today) return;
+    void (async () => {
+      const p = await ensureDailyPage(date);
+      await upsert('daily_reflections', stableId(p.id, 'reflection', 'weekly'), { daily_page_id: p.id, kind: 'weekly', answers: {} });
+    })();
+  }, [date, isSunday, today]);
 
   const goto = (d: string) => nav(d === today ? '/today' : `/day/${d}`);
   const rel = diffDays(date, today);
@@ -491,12 +476,14 @@ export default function TodayPage() {
         return <DayGoals date={date} />;
       case 'evening':
         return <Reflection date={date} page={page} kind="evening" />;
+      case 'sunday_review':
+        return <Reflection date={date} page={page} kind="weekly" />;
       case 'progress':
         return <Progress date={date} page={page} />;
     }
   };
 
-  const visible = order.filter((id) => !hidden.has(id));
+  const visible = order.filter((id) => !hidden.has(id) && applies(id));
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -545,7 +532,7 @@ export default function TodayPage() {
                 </MenuItem>
               ))}
               <MenuSeparator />
-              <MenuItem onSelect={() => setLayout({ order: [], hidden: [], collapsed: [] })}>{t('Reset layout')}</MenuItem>
+              <MenuItem onSelect={() => void updateSettings({ section_layout: {} })}>{t('Reset layout')}</MenuItem>
               <MenuItem onSelect={() => nav(`/print/day/${date}`)}>
                 <FileDown /> {t('Export PDF')}
               </MenuItem>

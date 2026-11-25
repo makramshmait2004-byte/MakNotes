@@ -5,7 +5,7 @@ import { useAll, useDb } from '@/data/hooks';
 import { useLocale, useT } from '@/i18n';
 import { useSettings, useToday } from '@/stores/settings';
 import { openTaskDialog } from '@/stores/ui';
-import { addDays, formatDate, timeInTz } from '@/lib/dates';
+import { addDays, diffDays, formatDate, timeInTz } from '@/lib/dates';
 import { TaskItem } from '@/features/tasks/TaskItem';
 import { isOverdue } from '@/features/tasks/taskLogic';
 import { currentStreak, isDue, setHabit } from '@/features/habits/habitLogic';
@@ -44,6 +44,8 @@ export default function HomePage() {
   const habits = useAll('habits', (h) => !h.archived_at);
   const logs = useAll('habit_logs', (l) => l.date >= addDays(today, -400));
   const goals = useAll('goals', (g) => g.status === 'active');
+  const allGoals = useAll('goals');
+  const projects = useAll('projects');
   const journal = useAll('journal_entries');
   const pages = useAll('notebook_pages', (p) => !p.archived_at);
   const focus = useAll('focus_sessions', (f) => f.date === today && f.kind === 'focus', [today]);
@@ -64,6 +66,15 @@ export default function HomePage() {
     [habits, logs, today, settings.week_start],
   );
 
+  // Progress — real data only: next active goal deadline, and GymFlow goals done / total.
+  const nextGoal = useMemo(
+    () => goals.filter((g) => g.target_date && g.target_date >= today).sort((a, b) => (a.target_date as string).localeCompare(b.target_date as string))[0],
+    [goals, today],
+  );
+  const gymflow = projects.find((p) => p.title.trim().toLowerCase() === 'gymflow');
+  const gymGoals = gymflow ? allGoals.filter((g) => g.project_id === gymflow.id && g.status !== 'abandoned') : [];
+  const gymDone = gymGoals.filter((g) => g.status === 'completed').length;
+
   const actions = [
     { label: 'Open today', icon: Sun, onClick: () => nav('/today') },
     { label: 'New task', icon: ListPlus, onClick: () => openTaskDialog(undefined, { scheduled_date: today }) },
@@ -82,6 +93,35 @@ export default function HomePage() {
           {name ? `, ${name}` : ''}.
         </h1>
       </div>
+
+      {(nextGoal || gymGoals.length > 0) && (
+        <div className="mb-6 grid gap-3 sm:grid-cols-2" data-testid="home-progress">
+          {nextGoal && (
+            <Link to={`/goals/${nextGoal.id}`} className="rounded-lg border bg-card p-4 hover:border-bronze/60" data-testid="next-deadline">
+              <div className="text-xs text-muted-foreground">{t('Next goal deadline')}</div>
+              <div className="mt-1 font-serif text-2xl font-semibold tabular-nums">
+                {(() => {
+                  const d = diffDays(nextGoal.target_date as string, today);
+                  return d === 0 ? t('Due today') : d === 1 ? t('1 day left') : t('{n} days left', { n: d });
+                })()}
+              </div>
+              <div className="mt-1 truncate text-sm">{nextGoal.title}</div>
+              <div className="text-xs text-muted-foreground">{formatDate(nextGoal.target_date as string, locale, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}</div>
+            </Link>
+          )}
+          {gymflow && gymGoals.length > 0 && (
+            <Link to={`/projects/${gymflow.id}`} className="rounded-lg border bg-card p-4 hover:border-bronze/60" data-testid="gymflow-progress">
+              <div className="text-xs text-muted-foreground">{t('GymFlow goals done')}</div>
+              <div className="mt-1 font-serif text-2xl font-semibold tabular-nums">
+                {gymDone}/{gymGoals.length}
+              </div>
+              <div className="mt-2 h-2 rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={gymGoals.length} aria-valuenow={gymDone} aria-label={t('GymFlow goals done')}>
+                <div className="h-full rounded-full bg-bronze" style={{ width: `${(gymDone / gymGoals.length) * 100}%` }} />
+              </div>
+            </Link>
+          )}
+        </div>
+      )}
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
