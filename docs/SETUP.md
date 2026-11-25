@@ -47,6 +47,23 @@ In **github.com/makramshmait2004-byte/MakNotes → Settings → Secrets and vari
 Open the site in **Chrome** → create your account → confirm the email → tap **⋮ → Add to Home
 screen** (or **Install app**). MakNotes then opens full-screen like a normal app and works offline.
 
+## Hosting on Vercel instead of GitHub Pages
+1. **vercel.com** → sign in with GitHub → **Add New… → Project** → import **MakNotes**.
+   Vercel reads `vercel.json` (Vite, `npm run build`, output `dist`) — leave the defaults.
+2. Before deploying, open **Environment Variables** and add (Production + Preview):
+   | Name | Value |
+   |---|---|
+   | `VITE_SUPABASE_URL` | `https://<ref>.supabase.co` |
+   | `VITE_SUPABASE_ANON_KEY` | the anon / publishable key |
+   | `VITE_ENABLE_GOOGLE` | `false` (or `true` once Google is set up) |
+3. **Deploy.** You get an address like `https://maknotes.vercel.app` (the app is served from the root there).
+4. In GitHub add the repository variable `SITE_URL` = that address (with a trailing `/`) and run
+   **Supabase setup** again, so sign-up / password-reset emails link back to Vercel.
+   (Manual alternative: Supabase → Authentication → URL Configuration → Site URL + Redirect URLs.)
+5. On your Samsung open the Vercel address in Chrome → ⋮ → **Add to Home screen**.
+
+Every push to `main` redeploys on Vercel automatically.
+
 ## Optional: Google sign-in
 Supabase → Authentication → Providers → Google (needs a Google Cloud OAuth client; free).
 Then add the GitHub variable `ENABLE_GOOGLE` = `true` and re-run **CI & Deploy**.

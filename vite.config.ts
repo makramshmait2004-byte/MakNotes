@@ -4,8 +4,9 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import path from 'node:path';
 
-// GitHub Pages serves the app from /MakNotes/. Override with VITE_BASE for other hosts.
-const base = process.env.VITE_BASE ?? '/MakNotes/';
+// GitHub Pages serves the app from /MakNotes/; Vercel (VERCEL=1 at build time) serves it from the domain root.
+// Override with VITE_BASE for any other host.
+const base = process.env.VITE_BASE ?? (process.env.VERCEL ? '/' : '/MakNotes/');
 
 import pkg from './package.json';
 
