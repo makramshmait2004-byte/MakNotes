@@ -19,10 +19,11 @@ import { useLocale, useT } from '@/i18n';
 import { updateSettings, useSettings, useToday } from '@/stores/settings';
 import { openEventDialog, openTaskDialog } from '@/stores/ui';
 import { Button } from '@/components/ui/button';
-import { Input, Textarea } from '@/components/ui/input';
+import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/controls';
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from '@/components/ui/menu';
 import { Section } from '@/components/shared/Section';
+import { SyncedInput, SyncedTextarea } from '@/components/shared/SyncedField';
 import { RichText } from '@/components/shared/RichText';
 import { MoodPicker } from '@/components/shared/MoodPicker';
 import { TaskItem } from '@/features/tasks/TaskItem';
@@ -79,11 +80,10 @@ function Priorities({ date, page }: { date: string; page?: Row<'daily_pages'> })
             <span className="w-5 font-serif text-lg text-bronze">{n}</span>
             {n === 1 && <span className="shrink-0 rounded border border-bronze/40 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-bronze" data-testid="gymflow-step">{t('GymFlow step')}</span>}
             <Checkbox checked={r?.done ?? false} disabled={!r?.text} onCheckedChange={(v) => void save.flush(n, { done: v === true })} aria-label={t('Priority {n} done', { n })} />
-            <input
-              key={`${r?.id ?? 'new'}-${r?.updated_at ?? ''}`}
-              defaultValue={r?.text ?? ''}
-              onChange={(e) => save(n, { text: e.target.value })}
-              onBlur={(e) => save.flush(n, { text: e.target.value })}
+            <SyncedInput
+              value={r?.text ?? ''}
+              onValueChange={(v) => save(n, { text: v })}
+              onCommit={(v) => save.flush(n, { text: v })}
               placeholder={t('Priority {n}', { n })}
               className={cn('h-10 min-w-0 flex-1 border-b bg-transparent text-[15px] outline-none focus:border-bronze', r?.done && 'text-muted-foreground line-through')}
               dir="auto"
@@ -189,11 +189,10 @@ function Reflection({ date, page, kind }: { date: string; page?: Row<'daily_page
         prompts.map((q) => (
           <label key={`${date}-${q}`} className="block">
             <span className="mb-1 block text-sm text-muted-foreground">{t(q)}</span>
-            <Textarea
-              key={`${row?.id ?? 'new'}-${q}`}
-              defaultValue={row?.answers?.[q] ?? ''}
-              onChange={(e) => save(q, e.target.value)}
-              onBlur={(e) => save.flush(q, e.target.value)}
+            <SyncedTextarea
+              value={row?.answers?.[q] ?? ''}
+              onValueChange={(v) => save(q, v)}
+              onCommit={(v) => save.flush(q, v)}
               rows={2}
               dir="auto"
             />

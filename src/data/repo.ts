@@ -156,7 +156,8 @@ export async function upsert<T extends TableName>(
   const cur = await db.table(table).get(id);
   if (!cur) {
     await insert(table, { ...create, ...patch, id } as Partial<TableRowMap[T]>);
-  } else if (cur.deleted_at || Object.keys(patch).length) {
+  } else if (cur.deleted_at || Object.entries(patch).some(([k, v]) => JSON.stringify((cur as Record<string, unknown>)[k] ?? null) !== JSON.stringify(v ?? null))) {
+    // only write when something actually changed (avoids needless sync traffic and conflicts)
     await update(table, id, { ...patch, deleted_at: null } as Partial<TableRowMap[T]>);
   }
 }

@@ -6,8 +6,28 @@ export class FakeServer {
   tables = new Map<string, Map<string, Row>>();
   private clock = Date.parse('2026-11-25T10:00:00Z');
   failNetwork = false;
+  /** When a storage key is given (e2e builds), the fake server survives page reloads like a real backend. */
+  constructor(private storageKey?: string) {
+    if (!storageKey || typeof localStorage === 'undefined') return;
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const data = JSON.parse(raw) as { clock: number; tables: Record<string, Row[]> };
+        this.clock = data.clock;
+        for (const [t, rows] of Object.entries(data.tables)) this.tables.set(t, new Map(rows.map((r) => [r.id, r])));
+      }
+    } catch {
+      /* start empty */
+    }
+  }
+  persist() {
+    if (!this.storageKey) return;
+    const tables: Record<string, Row[]> = {};
+    for (const [t, m] of this.tables) tables[t] = [...m.values()];
+    localStorage.setItem(this.storageKey, JSON.stringify({ clock: this.clock, tables }));
+  }
   now() {
-    this.clock += 1000;
+    this.clock = Math.max(this.clock + 1000, Date.now());
     return new Date(this.clock).toISOString();
   }
   table(name: string) {
@@ -75,6 +95,7 @@ class Query {
       if (t.has(p.id)) return { data: null, error: { message: 'duplicate key', code: '23505' } };
       const row = { ...p, updated_at: this.server.now() } as Row;
       t.set(row.id, row);
+      this.server.persist();
       return { data: this.single ? { ...row } : [{ ...row }], error: null };
     }
     const rows = [...t.values()].filter((r) => mine(r) && this.filters.every((f) => f(r)));
@@ -84,6 +105,7 @@ class Query {
         t.set(r.id, next);
         return { ...next };
       });
+      if (out.length) this.server.persist();
       return { data: out, error: null };
     }
     const sorted = rows.sort((a, b) => a.updated_at.localeCompare(b.updated_at)).slice(0, this.lim);

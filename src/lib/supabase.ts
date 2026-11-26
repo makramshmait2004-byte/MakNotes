@@ -7,7 +7,7 @@ import { FakeServer } from '@/test/fakeSupabase';
 // This branch is removed from production builds (import.meta.env.MODE is a build-time constant).
 export const supabase: SupabaseClient =
   import.meta.env.MODE === 'e2e'
-    ? (new FakeServer().client('e2e00000-0000-4000-8000-000000000001') as unknown as SupabaseClient)
+    ? (new FakeServer('maknotes-e2e-server').client('e2e00000-0000-4000-8000-000000000001') as unknown as SupabaseClient)
     : createClient(
   isBackendConfigured ? SUPABASE_URL : 'http://localhost:54321',
   isBackendConfigured ? SUPABASE_ANON_KEY : 'not-configured',

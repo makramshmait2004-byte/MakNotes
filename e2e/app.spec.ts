@@ -89,6 +89,28 @@ test('home progress only appears with real goal data', async ({ page }) => {
   await expect(page.getByTestId('gymflow-progress')).toContainText('0/1');
 });
 
+test('typing keeps focus (phone keyboard stays open) after autosave', async ({ page }) => {
+  await page.goto('./#/today');
+  const p1 = page.getByTestId('priority-1');
+  await p1.click();
+  await page.keyboard.type('Message');
+  await page.waitForTimeout(1200); // longer than the autosave delay
+  await expect(p1).toBeFocused();
+  await page.keyboard.type(' Gold Gym');
+  await page.waitForTimeout(1200);
+  await expect(p1).toBeFocused();
+  await expect(p1).toHaveValue('Message Gold Gym');
+  const evening = page.locator('[data-section="evening"]').getByRole('textbox').first();
+  await evening.click();
+  await page.keyboard.type('Good day');
+  await page.waitForTimeout(1200);
+  await expect(evening).toBeFocused();
+  await page.keyboard.type(' overall');
+  await expect(evening).toHaveValue('Good day overall');
+  await page.reload();
+  await expect(page.getByTestId('priority-1')).toHaveValue('Message Gold Gym');
+});
+
 test('tasks: create with dialog, views, recurring completion creates next', async ({ page }) => {
   await page.goto('./#/tasks');
   await page.getByRole('button', { name: /New task/ }).click();
